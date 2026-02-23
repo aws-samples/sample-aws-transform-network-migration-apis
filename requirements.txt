@@ -1,0 +1,7 @@
+# AWS Network Migration API Samples - Python Dependencies
+
+# AWS SDK for Python
+boto3>=1.26.0
+
+# Note: boto3 automatically includes botocore
+# No additional dependencies required for basic functionality
