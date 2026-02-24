@@ -1,4 +1,4 @@
-# AWS Network Migration API Samples - Python
+# AWS Transform for VMWare Network Migration API Samples - Python
 
 Python examples demonstrating the AWS Transform and AWS Application Migration Service Network Migration APIs using boto3.
 
