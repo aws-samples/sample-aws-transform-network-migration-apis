@@ -69,6 +69,10 @@ def create_definition():
         'targetNetwork': {
             'topology': 'ISOLATED_VPC',  # Options: ISOLATED_VPC or HUB_AND_SPOKE
             'inboundCidr': '10.0.0.0/16'  # Replace with your desired CIDR range
+        },
+        'tags': {
+            'AWSTransform': 'Network-API-blog',
+            'ManagedBy': 'AWS-Transform-API'
         }
     }
     
