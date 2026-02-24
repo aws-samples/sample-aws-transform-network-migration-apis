@@ -18,10 +18,10 @@
 
 #!/usr/bin/env python3
 """
-Delete All Network Migration Definitions
+Delete Network Migration Definitions by Tags
 
-This script lists all network migration definitions and optionally deletes them.
-Use with caution - this will delete ALL definitions in the account/region.
+This script lists network migration definitions filtered by specific tags and optionally deletes them.
+Only definitions with matching tags will be deleted.
 
 Usage:
     python 07_delete_all_network_definitions.py              # List only (dry run)
@@ -40,17 +40,26 @@ if endpoint:
     kwargs['endpoint_url'] = endpoint
 client = boto3.client('mgn', **kwargs)
 
+# Tags to filter by - only definitions with ALL these tags will be deleted
+TAG_FILTER = {
+    'AWSTransform': 'Network-API-blog',
+    'ManagedBy': 'AWS-Transform-API'
+}
 
-def list_all_definitions():
+
+def list_definitions_by_tags(tag_filter):
     """
-    List all network migration definitions with pagination support.
+    List network migration definitions filtered by tags (client-side filtering).
+    
+    Args:
+        tag_filter (dict): Dictionary of tags to filter by
     
     Returns:
-        list: List of all network migration definition summaries
+        list: List of definitions matching all specified tags
     """
     params = {
         'maxResults': 50
-    }
+        }
     
     try:
         all_definitions = []
@@ -70,7 +79,13 @@ def list_all_definitions():
             if not next_token:
                 break
         
-        return all_definitions
+        # Client-side tag filtering - match ALL specified tags
+        filtered_definitions = [
+            d for d in all_definitions
+            if all(d.get('tags', {}).get(k) == v for k, v in tag_filter.items())
+        ]
+        
+        return filtered_definitions
     except Exception as error:
         print(f"Error listing definitions: {str(error)}", file=sys.stderr)
         raise
@@ -96,30 +111,35 @@ def delete_definition(definition_id):
         return False
 
 
-def delete_all_definitions(confirm_delete=False):
+def delete_definitions_by_tags(tag_filter, confirm_delete=False):
     """
-    List and optionally delete all network migration definitions.
+    List and optionally delete network migration definitions matching specified tags.
     
     Args:
+        tag_filter (dict): Dictionary of tags to filter by
         confirm_delete (bool): If True, actually delete definitions. If False, dry run only.
     """
-    print("Fetching all network migration definitions...")
-    definitions = list_all_definitions()
+    print("Fetching network migration definitions...")
+    print(f"Filtering by tags: {tag_filter}\n")
+    
+    definitions = list_definitions_by_tags(tag_filter)
     
     if not definitions:
-        print("No network migration definitions found.")
+        print("No network migration definitions found matching the specified tags.")
         return
     
-    print(f"\nFound {len(definitions)} definition(s):\n")
+    print(f"Found {len(definitions)} definition(s) matching tags:\n")
     
-    # Display all definitions
+    # Display all matching definitions
     for index, definition in enumerate(definitions, 1):
         def_id = definition.get('networkMigrationDefinitionID', 'N/A')
         name = definition.get('name', 'N/A')
         source_env = definition.get('sourceEnvironment', 'N/A')
+        tags = definition.get('tags', {})
         print(f"{index}. {name}")
         print(f"   ID: {def_id}")
         print(f"   Source Environment: {source_env}")
+        print(f"   Tags: {tags}")
         print()
     
     if not confirm_delete:
@@ -166,7 +186,7 @@ if __name__ == '__main__':
     confirm_delete = '--confirm' in sys.argv or '-c' in sys.argv
     
     try:
-        delete_all_definitions(confirm_delete=confirm_delete)
+        delete_definitions_by_tags(TAG_FILTER, confirm_delete=confirm_delete)
     except Exception as error:
         print(f"Failed to complete operation: {str(error)}", file=sys.stderr)
         sys.exit(1)
