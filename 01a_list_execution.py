@@ -78,7 +78,7 @@ def list_executions(definition_id):
             print(f"\nExecution {index}:")
             print(f"  Execution ID: {execution.get('networkMigrationExecutionID')}")
             print(f"  Status: {execution.get('status', 'N/A')}")
-            print(f"  Created: {execution.get('creationDateTime', 'N/A')}")
+            print(f"  Created: {execution.get('createdAt', 'N/A')}")
 
         return all_executions
     except Exception as error:
