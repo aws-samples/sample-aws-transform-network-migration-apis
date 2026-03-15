@@ -79,28 +79,37 @@ def edit_segments(definition_id, execution_id):
             constructs = constructs_response.get('items', [])
             print(f"✓ Found {len(constructs)} constructs")
             
-            # Find and update only ec2::vpc constructs
+            # Find VPC constructs and update their CIDR
+            construct_updates = []
             for construct in constructs:
+                print(f"  - {construct['constructID']} ({construct.get('constructType', 'N/A')})")
+                
                 if construct.get('constructType', '').lower() != 'aws::ec2::vpc':
                     continue
 
-                print(f"\nUpdating VPC construct: {construct['constructID']} ({construct['constructType']})")
-                
-                # Update only the tags
-                client.update_network_migration_mapper_segment_construct(
+                print(f"\n  Updating VPC construct: {construct['constructID']}")
+                construct_updates.append({
+                    'segmentID': segment_to_edit['segmentID'],
+                    'constructID': construct['constructID'],
+                    'constructType': construct['constructType'],
+                    'operation': {
+                        'update': {
+                            'properties': {
+                                # Note: The replacement CIDR prefix length must match
+                                # the source VPC's prefix length (e.g., /24 -> /24)
+                                'CidrBlock': '10.0.0.0/24'
+                            }
+                        }
+                    }
+                })
+
+            if construct_updates:
+                client.start_network_migration_mapping_update(
                     networkMigrationDefinitionID=definition_id,
                     networkMigrationExecutionID=execution_id,
-                    segmentID=segment_to_edit['segmentID'],
-                    constructID=construct['constructID'],
-                    properties={
-                        'Tags': json.dumps([
-                            {'Key': 'Environment', 'Value': 'Production'},
-                            {'Key': 'ManagedBy', 'Value': 'NetworkMigration'}
-                        ])
-                    }
+                    constructs=construct_updates
                 )
-                
-                print("✓ VPC tags updated")
+                print(f"✓ Updated {len(construct_updates)} VPC construct(s)")
         
         return segments
     except Exception as error:
