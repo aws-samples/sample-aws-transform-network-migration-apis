@@ -42,17 +42,25 @@ if endpoint:
 client = boto3.client('mgn', **kwargs)
 
 
-def deploy_network(definition_id, execution_id):
+def deploy_network(definition_id, execution_id, skip_confirm=False):
     """
     Deploy the network infrastructure to AWS.
     
     Args:
         definition_id (str): Network migration definition ID from step 1
         execution_id (str): Network migration execution ID
+        skip_confirm (bool): If True, skip the confirmation prompt
         
     Returns:
         str: Job ID for the deployment operation
     """
+    if not skip_confirm:
+        print("⚠️  This will deploy resources to your live AWS environment.")
+        confirm = input("Do you want to proceed with deployment? (yes/no): ").strip().lower()
+        if confirm not in ('yes', 'y'):
+            print("Deployment skipped by user.")
+            return None
+
     params = {
         'networkMigrationDefinitionID': definition_id,
         'networkMigrationExecutionID': execution_id,
