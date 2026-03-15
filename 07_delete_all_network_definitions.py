@@ -152,8 +152,12 @@ def delete_definitions_by_tags(tag_filter, confirm_delete=False):
     
     # Confirm deletion
     print("=" * 60)
-    print("WARNING: You are about to delete ALL definitions listed above!")
+    print("⚠️  WARNING: You are about to delete ALL definitions listed above!")
     print("=" * 60)
+    confirm = input("Do you want to proceed with deletion? (yes/no): ").strip().lower()
+    if confirm not in ('yes', 'y'):
+        print("Deletion cancelled by user.")
+        return
     
     # Perform deletions
     print("\nDeleting definitions...")
