@@ -57,22 +57,37 @@ $env:TARGET_ACCOUNT_ID="123456789012"  # Replace with your target AWS account ID
 
 ### Update S3 Configuration
 
-Before running, update the S3 bucket names in `01_create_definition.py`:
+Copy the example configuration file and update it with your values:
 
-```python
-'s3Bucket': 'SOURCE-BUCKET-NAME',       # Replace with your actual bucket
-'s3Key': 'NETWORK-EXPORT-FILE-NAME',         # Replace with your actual file
-...
-'s3Bucket': 'TARGET-BUCKET-NAME',  # Replace with your S3 bucket for generated code
-...
-'topology': 'ISOLATED_VPC',  # (Optional) Options: ISOLATED_VPC or HUB_AND_SPOKE
-'inboundCidr': '10.0.0.0/16'  # (Optional) Replace with your desired CIDR range
+```bash
+cp config.json.example config.json
+```
+
+Then edit `config.json` with your actual values:
+
+```json
+{
+    "name": "my-network-migration",
+    "description": "Sample network migration to AWS",
+    "sourceEnvironment": "VSPHERE",
+    "sourceBucket": "YOUR-SOURCE-BUCKET-NAME",
+    "sourceKey": "YOUR-NETWORK-EXPORT-FILE-NAME",
+    "sourceAccountId": "123456789012",
+    "targetBucket": "YOUR-TARGET-BUCKET-NAME",
+    "targetAccountId": "123456789012",
+    "targetDeployment": "SINGLE_ACCOUNT",
+    "topology": "ISOLATED_VPC",
+    "inboundCidr": "10.0.0.0/16"
+}
 ```
 
 Replace the following placeholders:
-- `SOURCE-BUCKET-NAME` - S3 bucket containing your network export file
-- `TARGET-BUCKET-NAME` - S3 bucket where generated code will be stored
-- `toplogy` - ISOLATED_VPC or HUB_AND_SPOKE based on your architecture needs
+- `YOUR-SOURCE-BUCKET-NAME` - S3 bucket containing your network export file
+- `YOUR-NETWORK-EXPORT-FILE-NAME` - Name of your network export file in S3
+- `YOUR-TARGET-BUCKET-NAME` - S3 bucket where generated code will be stored
+- `sourceAccountId` / `targetAccountId` - Your AWS account IDs
+- `sourceEnvironment` - One of: `NSX`, `VSPHERE`, `FORTIGATE_FIREWALL`, `PALO_ALTO_FIREWALL`, `CISCO_ACI`, `LOGICAL_MODEL`, `MODELIZE_IT`
+- `topology` - `ISOLATED_VPC` or `HUB_AND_SPOKE` based on your architecture needs
 - `inboundCidr` - For hub and spoke topology, three VPCs are created (inbound, outbound, and inspection). This parameter allows you to define the CIDR range for the inbound VPC.
 
 ## Usage
