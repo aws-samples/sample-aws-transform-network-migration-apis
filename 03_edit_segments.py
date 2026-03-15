@@ -107,9 +107,30 @@ def edit_segments(definition_id, execution_id):
                 client.start_network_migration_mapping_update(
                     networkMigrationDefinitionID=definition_id,
                     networkMigrationExecutionID=execution_id,
-                    constructs=construct_updates
+                    constructs=construct_updates,
+                    segments=[{
+                        'segmentID': segment_to_edit['segmentID'],
+                        'scopeTags': {
+                            'Environment': 'Production',
+                            'ManagedBy': 'NetworkMigration'
+                        }
+                    }]
                 )
-                print(f"✓ Updated {len(construct_updates)} VPC construct(s)")
+                print(f"✓ Updated {len(construct_updates)} VPC construct(s) and segment scope tags")
+
+            # Update segment scope tags
+            # Note: Tags cannot be set on individual constructs, use segment-level scope tags instead
+            print(f"\n  Updating scope tags for segment: {segment_to_edit['segmentID']}")
+            client.update_network_migration_mapper_segment(
+                networkMigrationDefinitionID=definition_id,
+                networkMigrationExecutionID=execution_id,
+                segmentID=segment_to_edit['segmentID'],
+                scopeTags={
+                    'Environment': 'Production',
+                    'ManagedBy': 'NetworkMigration'
+                }
+            )
+            print("✓ Segment scope tags updated")
         
         return segments
     except Exception as error:
