@@ -89,7 +89,12 @@ def edit_segments(definition_id, execution_id):
                 if construct.get('constructType', '').lower() != 'aws::ec2::vpc':
                     continue
 
-                print(f"\n  Will update VPC construct: {construct['constructID']}")
+                # Read the source CIDR to preserve the prefix length
+                source_cidr = construct.get('properties', {}).get('CidrBlock', '')
+                prefix = source_cidr.split('/')[-1] if '/' in source_cidr else '24'
+                new_cidr = f'10.0.0.0/{prefix}'
+
+                print(f"\n  Will update VPC construct: {construct['constructID']} ({source_cidr} -> {new_cidr})")
                 all_construct_updates.append({
                     'segmentID': segment_to_edit['segmentID'],
                     'constructID': construct['constructID'],
@@ -97,9 +102,9 @@ def edit_segments(definition_id, execution_id):
                     'operation': {
                         'update': {
                             'properties': {
-                                # Note: The replacement CIDR prefix length must match
-                                # the source VPC's prefix length (e.g., /24 -> /24)
-                                'CidrBlock': '10.0.0.0/21'
+                                # The replacement CIDR prefix length must match
+                                # the source VPC's prefix length
+                                'CidrBlock': new_cidr
                             }
                         }
                     }
