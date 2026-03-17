@@ -38,9 +38,18 @@ import time
 import uuid
 import sys
 import os
+import boto3
 
 # Add current directory to path to import other modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Initialize MGN client
+region = os.environ.get('AWS_REGION', 'us-east-1')
+endpoint = os.environ.get('ENDPOINT_URL')
+mgn_kwargs = {'region_name': region}
+if endpoint:
+    mgn_kwargs['endpoint_url'] = endpoint
+client = boto3.client('mgn', **mgn_kwargs)
 
 # Import functions from other example scripts
 import importlib
@@ -79,6 +88,33 @@ def sleep(seconds):
     time.sleep(seconds)
 
 
+def wait_for_mapping_update(definition_id, execution_id, poll_interval=10, max_attempts=60):
+    """Wait for the latest mapping update job to complete."""
+    print("Waiting for mapping update to complete (polling every 10s)...")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = client.list_network_migration_mapping_updates(
+                networkMigrationDefinitionID=definition_id,
+                networkMigrationExecutionID=execution_id,
+                maxResults=1
+            )
+            items = response.get('items', [])
+            if items:
+                status = items[0].get('status', 'UNKNOWN')
+                print(f"  Attempt {attempt}/{max_attempts} — Status: {status}")
+                if status in ('SUCCEEDED', 'COMPLETED'):
+                    print("✓ Mapping update complete")
+                    return
+                if status in ('FAILED', 'ERROR'):
+                    print(f"✗ Mapping update failed: {items[0].get('statusDetails', '')}")
+                    return
+            time.sleep(poll_interval)
+        except Exception as error:
+            print(f"  Attempt {attempt}/{max_attempts} — Error: {error}")
+            time.sleep(poll_interval)
+    print("⚠ Timed out waiting for mapping update")
+
+
 def complete_workflow():
     """
     Execute the complete network migration workflow.
@@ -115,6 +151,11 @@ def complete_workflow():
         # Step 3: Edit Segments
         print("\nStep 3: Editing Migration Segments...")
         edit_segments(definition_id, execution_id)
+        sleep(2)
+
+        # Step 3a: Wait for mapping update to complete
+        print("\nStep 3a: Waiting for mapping update to complete...")
+        wait_for_mapping_update(definition_id, execution_id)
         sleep(2)
         
         # Step 4: Generate Code
