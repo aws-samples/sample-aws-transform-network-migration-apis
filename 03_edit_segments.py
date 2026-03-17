@@ -23,13 +23,13 @@ Edit Network Migration Segments
 This script demonstrates how to customize network segments and constructs:
 - Modify CIDR blocks
 - Update tags
-- Adjust network properties
 """
 
 import boto3
 import os
 import sys
 import json
+import time
 
 # Initialize MGN client
 region = os.environ.get('AWS_REGION', 'us-east-1')
@@ -39,104 +39,126 @@ if endpoint:
     kwargs['endpoint_url'] = endpoint
 client = boto3.client('mgn', **kwargs)
 
-
 def edit_segments(definition_id, execution_id):
     """
-    Edit network migration segments and constructs.
-
+    Edit network migration segments and update VPC CIDR blocks.
+    
     Args:
         definition_id (str): Network migration definition ID
         execution_id (str): Network migration execution ID
-
+        
     Returns:
         list: List of processed segments
     """
     try:
-        # List segments
         list_response = client.list_network_migration_mapper_segments(
             networkMigrationDefinitionID=definition_id,
             networkMigrationExecutionID=execution_id
         )
-
+        
         segments = list_response.get('items', [])
         print(f"✓ Found {len(segments)} segments")
-
+        
         if len(segments) == 0:
             print("No segments to edit")
             return []
-
-        # Collect all updates across segments for a single API call
-        all_construct_updates = []
-        all_segment_updates = []
-
-        for segment_to_edit in segments:
-            print(f"\nEditing constructs in segment: {segment_to_edit['segmentID']}")
-
-            # List constructs in the segment
+        
+        cidr_mapping = {
+            'segment-name-1': '10.10.0.0/24',    # (Optional) Update the segment-name-1 with the segment name to update CIDR block. Resizing CIDR is not supported
+            'segment-name-2': '10.20.0.0/24',   # (Optional) Update the segment-name-2 with the segment name to update CIDR block. Resizing CIDR is not supported
+        }
+        
+        # Update network segment tags
+        for segment in segments:
+            segment_id = segment['segmentID']
+            print(f"\nUpdating segment {segment_id} tags")
+            
+            client.update_network_migration_mapper_segment(
+                networkMigrationDefinitionID=definition_id,
+                networkMigrationExecutionID=execution_id,
+                segmentID=segment_id,
+                scopeTags={'AWSTransform': 'Network-API-blog', 'ManagedBy': 'AWS-Transform-API'} # update the tags for network resources
+            )
+            print("✓ Segment tags updated")
+        
+        # Update VPC CIDR blocks
+        constructs_to_update = []
+        
+        for segment in segments:
+            segment_id = segment['segmentID']
+            segment_name = segment.get('name', '')
+            
+            if segment_name not in cidr_mapping:
+                continue
+            
             constructs_response = client.list_network_migration_mapper_segment_constructs(
                 networkMigrationDefinitionID=definition_id,
                 networkMigrationExecutionID=execution_id,
-                segmentID=segment_to_edit['segmentID']
+                segmentID=segment_id
             )
-
-            constructs = constructs_response.get('items', [])
-            print(f"✓ Found {len(constructs)} constructs")
-
-            # Find VPC constructs and collect CIDR updates
-            for construct in constructs:
-                print(f"  - {construct['constructID']} ({construct.get('constructType', 'N/A')})")
-
-                if construct.get('constructType', '').lower() != 'aws::ec2::vpc':
-                    continue
-
-                # Read the source CIDR to preserve the prefix length
-                source_cidr = construct.get('properties', {}).get('CidrBlock', '')
-                prefix = source_cidr.split('/')[-1] if '/' in source_cidr else '24'
-                new_cidr = f'10.0.0.0/{prefix}'
-
-                print(f"\n  Will update VPC construct: {construct['constructID']} ({source_cidr} -> {new_cidr})")
-                all_construct_updates.append({
-                    'segmentID': segment_to_edit['segmentID'],
-                    'constructID': construct['constructID'],
-                    'constructType': construct['constructType'],
-                    'operation': {
-                        'update': {
-                            'properties': {
-                                # The replacement CIDR prefix length must match
-                                # the source VPC's prefix length
-                                'CidrBlock': new_cidr
+            
+            for construct in constructs_response.get('items', []):
+                if construct.get('constructType') == 'AWS::EC2::VPC':
+                    print(f"Updating {segment_name} -> {cidr_mapping[segment_name]}")
+                    constructs_to_update.append({
+                        'segmentID': segment_id,
+                        'constructID': construct['constructID'],
+                        'constructType': 'AWS::EC2::VPC',
+                        'operation': {
+                            'update': {
+                                'properties': {
+                                    'CidrBlock': cidr_mapping[segment_name]
+                                }
                             }
                         }
-                    }
-                })
+                    })
+        
+        if constructs_to_update:
+            print(f"\nUpdating {len(constructs_to_update)} VPC CIDR blocks")
+            response = client.start_network_migration_mapping_update(
+                networkMigrationDefinitionID=definition_id,
+                networkMigrationExecutionID=execution_id,
+                constructs=constructs_to_update
+            )
+            print(f"✓ Mapping update started. Job ID: {response['jobID']}")
 
-            # Collect segment scope tags update
-            all_segment_updates.append({
-                'segmentID': segment_to_edit['segmentID'],
-                'scopeTags': {
-                    'Environment': 'Production',
-                    'ManagedBy': 'NetworkMigration'
-                }
-            })
+            # Wait for the mapping update to complete
+            job_id = response['jobID']
+            print(f"Waiting for mapping update to complete...")
+            for attempt in range(1, 61):
+                updates = client.list_network_migration_mapping_updates(
+                    networkMigrationDefinitionID=definition_id,
+                    networkMigrationExecutionID=execution_id
+                )
+                for item in updates.get('items', []):
+                    if item.get('jobID') == job_id:
+                        status = item.get('status', 'UNKNOWN')
+                        print(f"  Attempt {attempt}/60 — Job: {job_id} — Status: {status}")
+                        if status == 'SUCCEEDED':
+                            print("✓ Mapping update completed successfully")
+                            break
+                        elif status == 'FAILED':
+                            raise RuntimeError(f"Mapping update failed: {item.get('statusDetails', 'No details')}")
+                        break
+                else:
+                    print(f"  Attempt {attempt}/60 — Job not found yet")
+                    time.sleep(10)
+                    continue
+                if status == 'SUCCEEDED':
+                    break
+                time.sleep(10)
+            else:
+                raise TimeoutError(f"Mapping update did not complete after 60 attempts")
 
-        # Submit all updates in a single API call to avoid job conflicts
-        if all_construct_updates or all_segment_updates:
-            update_params = {
-                'networkMigrationDefinitionID': definition_id,
-                'networkMigrationExecutionID': execution_id,
-            }
-            if all_construct_updates:
-                update_params['constructs'] = all_construct_updates
-            if all_segment_updates:
-                update_params['segments'] = all_segment_updates
-
-            client.start_network_migration_mapping_update(**update_params)
-            print(f"\n✓ Submitted updates: {len(all_construct_updates)} construct(s), {len(all_segment_updates)} segment(s)")
+        else:
+            print("\nNo VPC constructs to update, using source mapped CIDR")
 
         return segments
+    
     except Exception as error:
         print(f"Error editing segments: {str(error)}", file=sys.stderr)
-
+        return []
+    
 
 if __name__ == '__main__':
     # Run if executed directly
