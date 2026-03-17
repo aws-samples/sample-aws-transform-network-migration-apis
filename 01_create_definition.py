@@ -29,6 +29,7 @@ This script creates a network migration definition that specifies:
 import boto3
 import os
 import sys
+import json
 
 # Initialize MGN client
 region = os.environ.get('AWS_REGION', 'us-east-1')
@@ -46,29 +47,38 @@ def create_definition():
     Returns:
         str: The network migration definition ID
     """
+    # Load configuration from config.json if available, otherwise use defaults
+    config = {}
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            config = json.load(f)
+        print(f"✓ Loaded configuration from {config_path}")
+    else:
+        print("⚠ No config.json found, using placeholder values. See README for setup instructions.")
+
     # Define migration parameters
-    # TODO: Update these values with your actual configuration
     params = {
-        'name': 'my-network-migration',
-        'description': 'Sample network migration from NSX to AWS',
-        'targetDeployment': 'SINGLE_ACCOUNT',
+        'name': config.get('name', 'my-network-migration'),
+        'description': config.get('description', 'Sample network migration to AWS'),
+        'targetDeployment': config.get('targetDeployment', 'SINGLE_ACCOUNT'),
         'sourceConfigurations': [
             {
-                'sourceEnvironment': 'NSX',
+                'sourceEnvironment': config.get('sourceEnvironment', 'NSX'),
                 'sourceS3Configuration': {
-                    's3Bucket': 'SOURCE-BUCKET_NAME',  # Replace with your S3 bucket containing network export
-                    's3Key': 'NETWORK-EXPORT-FILE-NAME',  # Replace with your network export file name
-                    's3BucketOwner': os.environ.get('SOURCE_ACCOUNT_ID', '123456789012')
+                    's3Bucket': config.get('sourceBucket', 'SOURCE-BUCKET-NAME'),
+                    's3Key': config.get('sourceKey', 'NETWORK-EXPORT-FILE-NAME'),
+                    's3BucketOwner': config.get('sourceAccountId', os.environ.get('SOURCE_ACCOUNT_ID', '123456789012'))
                 }
             }
         ],
         'targetS3Configuration': {
-            's3Bucket': 'TARGET-BUCKET-NAME',  # Replace with your S3 bucket for generated code
-            's3BucketOwner': os.environ.get('TARGET_ACCOUNT_ID', '123456789012')
+            's3Bucket': config.get('targetBucket', 'TARGET-BUCKET-NAME'),
+            's3BucketOwner': config.get('targetAccountId', os.environ.get('TARGET_ACCOUNT_ID', '123456789012'))
         },
         'targetNetwork': {
-            'topology': 'ISOLATED_VPC',  # Options: ISOLATED_VPC or HUB_AND_SPOKE
-            'inboundCidr': '10.0.0.0/16'  # Replace with your desired CIDR range
+            'topology': config.get('topology', 'ISOLATED_VPC'),
+            'inboundCidr': config.get('inboundCidr', '10.0.0.0/16')
         },
         'tags': {
             'AWSTransform': 'Network-API-blog',

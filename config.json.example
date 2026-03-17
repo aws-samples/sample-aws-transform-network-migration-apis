@@ -1,0 +1,13 @@
+{
+    "name": "my-network-migration",
+    "description": "Sample network migration to AWS",
+    "sourceEnvironment": "VSPHERE",
+    "sourceBucket": "YOUR-SOURCE-BUCKET-NAME",
+    "sourceKey": "YOUR-NETWORK-EXPORT-FILE-NAME",
+    "sourceAccountId": "123456789012",
+    "targetBucket": "YOUR-TARGET-BUCKET-NAME",
+    "targetAccountId": "123456789012",
+    "targetDeployment": "SINGLE_ACCOUNT",
+    "topology": "ISOLATED_VPC",
+    "inboundCidr": "10.0.0.0/16"
+}
