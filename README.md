@@ -55,6 +55,20 @@ $env:SOURCE_ACCOUNT_ID="123456789012"  # Replace with your source AWS account ID
 $env:TARGET_ACCOUNT_ID="123456789012"  # Replace with your target AWS account ID
 ```
 
+#### FIPS Endpoints (Optional)
+
+To use FIPS 140-3 validated endpoints, set the `ENDPOINT_URL` environment variable:
+
+```bash
+# macOS/Linux
+export ENDPOINT_URL=https://mgn-fips.us-east-2.amazonaws.com
+
+# Windows (PowerShell)
+$env:ENDPOINT_URL="https://mgn-fips.us-east-2.amazonaws.com"
+```
+
+The FIPS endpoint format is `https://mgn-fips.<region>.amazonaws.com`. See [AWS FIPS endpoints](https://aws.amazon.com/compliance/fips/) for more information and available regions.
+
 ### Update S3 Configuration
 
 Before running, update the S3 bucket names in `01_create_definition.py`:
