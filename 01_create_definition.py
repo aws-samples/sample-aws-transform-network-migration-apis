@@ -33,6 +33,7 @@ import json
 
 # Initialize MGN client
 region = os.environ.get('AWS_REGION', 'us-east-1')
+# To use FIPS endpoints, set ENDPOINT_URL (e.g., https://mgn-fips.us-east-2.amazonaws.com)
 endpoint = os.environ.get('ENDPOINT_URL')
 kwargs = {'region_name': region}
 if endpoint:
